@@ -1,0 +1,93 @@
+name: Terraform AI Reviewer
+
+on:
+  pull_request:
+    types:
+      - opened
+      - synchronize
+      - reopened
+
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  terraform-review:
+    name: Terraform Review
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Show changed files
+        run: |
+          echo "Terraform AI Reviewer started"
+          echo "PR: ${{ github.event.pull_request.number }}"
+          echo "Base branch: ${{ github.event.pull_request.base.ref }}"
+          echo "Head branch: ${{ github.event.pull_request.head.ref }}"
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Check Terraform installation
+        run: |
+          terraform version
+
+      - name: Setup TFLint
+        uses: terraform-linters/setup-tflint@v5
+
+      - name: TFLint version
+        run: tflint --version
+
+      - name: Terraform Format Check
+        working-directory: terraform
+        run: terraform fmt -recursive
+
+      - name: Terraform Init
+        working-directory: terraform
+        run: terraform init -backend=false
+
+      - name: Terraform Validate
+        working-directory: terraform
+        run: terraform validate
+
+      - name: TFLint
+        working-directory: terraform
+        run: |
+          tflint --init
+          tflint --format json > tflint.json || true
+
+      - name: Upload TFLint Report
+        uses: actions/upload-artifact@v4
+        with:
+          name: tflint-report
+          path: terraform/tflint.json
+
+      # - name: Terraform Plan
+      #   working-directory: terraform
+      #   run: terraform plan -out=tfplan
+
+      #- name: Terraform Plan JSON
+      #  working-directory: terraform
+      #  run: terraform show -json tfplan > tfplan.json 
+
+      # - name: Check Terraform Plan
+      #   working-directory: terraform
+      #   run: |
+      #     echo "Terraform plan generated:"
+      #     ls -lh tfplan
+      #     ls -lh tfplan.json
+
+      # - name: Terraform Plan
+      #   working-directory: terraform
+      #   run: terraform plan -no-color > tf_plan_output.txt
+      
+      - name: Run Generic AI Code Reviewer
+        uses: asthasharma1604/terraform-ai-reviewer-action@terraform-ai-reviewer-action-branch1
+        #uses: asthasharma-tenarai/terraform-ai-reviewer-action@features/reviewer-action
+        with:
+          openai_api_key: ${{ secrets.OPENAI_API_KEY }}
+          github_token: ${{ secrets.GHP_SECRET_TOKEN }}
+          plan_path: terraform/tf_plan_output.txt
