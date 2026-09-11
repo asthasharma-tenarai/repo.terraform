@@ -73,3 +73,19 @@ resource "aws_security_group" "legacy_web" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 }
+
+resource "aws_s3_bucket_versioning" "review_bucket_versioning" {
+  bucket = aws_s3_bucket.review_bucket.id
+
+  versioning_configuration {
+    status = "Suspended"
+  }
+}
+
+resource "aws_iam_policy_attachment" "review_attach" {
+  name       = "review-attachment"
+  policy_arn = "arn:aws:iam::aws:policy/AdministratorAccess"
+  groups     = []
+  users      = [aws_iam_user.ops_admin.name]
+  roles      = []
+}
