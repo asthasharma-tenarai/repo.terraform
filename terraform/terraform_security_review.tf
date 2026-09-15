@@ -53,7 +53,7 @@ resource "aws_cloudtrail" "global_trail" {
 
 resource "aws_iam_access_key" "review_key" {
   user    = aws_iam_user.ops_admin.name
-  status  = "Active"
+  status  = "Active" 
 }
 
 resource "aws_security_group" "legacy_web" {
