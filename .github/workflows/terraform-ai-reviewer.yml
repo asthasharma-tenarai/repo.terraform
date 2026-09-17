@@ -10,6 +10,8 @@ on:
   workflow_dispatch:
 
 permissions:
+  pull-requests: write
+  statuses: write
   contents: read
 
 jobs:
@@ -29,14 +31,14 @@ jobs:
           echo "Head branch: ${{ github.event.pull_request.head.ref }}"
 
       - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
+        uses: hashicorp/setup-terraform@v4
 
       - name: Check Terraform installation
         run: |
           terraform version
 
       - name: Setup TFLint
-        uses: terraform-linters/setup-tflint@v5
+        uses: terraform-linters/setup-tflint@v6
 
       - name: TFLint version
         run: tflint --version
@@ -60,7 +62,7 @@ jobs:
           tflint --format json > tflint.json || true
 
       - name: Upload TFLint Report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: tflint-report
           path: terraform/tflint.json
@@ -89,5 +91,6 @@ jobs:
         #uses: asthasharma-tenarai/terraform-ai-reviewer-action@features/reviewer-action
         with:
           openai_api_key: ${{ secrets.OPENAI_API_KEY }}
-          github_token: ${{ secrets.GHP_SECRET_TOKEN }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
           plan_path: terraform/tf_plan_output.txt
+
