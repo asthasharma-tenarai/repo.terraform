@@ -8,6 +8,10 @@ terraform {
       source  = "hashicorp/aws"
       version = "~> 5.0"
     }
+    random = {
+      source  = "hashicorp/random"
+      version = "~> 3.0"
+    }
   }
 }
 
@@ -91,32 +95,57 @@ resource "aws_iam_policy" "read_only_bucket" {
   })
 }
 
-resource "aws_instance" "app" {
-  ami                         = "ami-0c02fb55956c7d316"
-  instance_type               = "t3.small"
-  associate_public_ip_address = false
-  vpc_security_group_ids      = [aws_security_group.open_ssh.id]
+resource "random_password" "db_password" {
+  length           = 24
+  special          = true
+  override_special = "!@#%&*()-_=+[]{}:?"
+}
+
+resource "aws_launch_template" "app" {
+  name_prefix   = "secure-app-"
+  image_id      = "ami-0c02fb55956c7d316"
+  instance_type = "t3.micro"
+
+  network_interfaces {
+    associate_public_ip_address = false
+    security_groups             = [aws_security_group.open_ssh.id]
+  }
 
   metadata_options {
     http_tokens = "required"
   }
 
-  user_data = <<-EOF
+  user_data = base64encode(<<-EOF
     #!/bin/bash
     echo "setup" > /tmp/setup.txt
   EOF
+  )
+}
+
+resource "aws_autoscaling_group" "app" {
+  name                = "secure-app-asg"
+  desired_capacity    = 1
+  min_size            = 1
+  max_size            = 1
+  vpc_zone_identifier = ["subnet-0123456789abcdef0"]
+
+  launch_template {
+    id      = aws_launch_template.app.id
+    version = "$Latest"
+  }
 }
 
 resource "aws_db_instance" "example_db" {
   identifier              = "example-db"
   engine                  = "mysql"
-  instance_class          = "db.t3.small"
-  allocated_storage       = 10
+  instance_class          = "db.t3.micro"
+  allocated_storage       = 5
   username                = "admin"
-  password                = "P@ssw0rd!Example2026"
+  password                = random_password.db_password.result
   publicly_accessible     = false
   skip_final_snapshot     = false
   storage_encrypted       = true
   backup_retention_period = 7
   deletion_protection     = true
+  multi_az                = true
 }
