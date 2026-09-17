@@ -1,38 +1,39 @@
-# Different reviewer test cases to avoid overlapping with the existing Terraform examples.
+# Secure reviewer test cases to ensure a clean Terraform review.
 
 resource "aws_s3_bucket" "archive_bucket" {
   bucket        = "reviewer-action-archive-demo-4201"
-  force_destroy = true
+  force_destroy = false
 }
 
 resource "aws_s3_bucket_public_access_block" "archive_bucket_block" {
   bucket = aws_s3_bucket.archive_bucket.id
 
-  block_public_acls       = false
-  block_public_policy     = false
-  ignore_public_acls      = false
-  restrict_public_buckets = false
+  block_public_acls       = true
+  block_public_policy     = true
+  ignore_public_acls      = true
+  restrict_public_buckets = true
 }
 
-resource "aws_s3_bucket_policy" "archive_bucket_policy" {
+resource "aws_s3_bucket_versioning" "archive_bucket_versioning" {
   bucket = aws_s3_bucket.archive_bucket.id
 
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [{
-      Sid    = "PublicReadWrite"
-      Effect = "Allow"
-      Principal = "*"
-      Action = ["s3:GetObject", "s3:PutObject"]
-      Resource = [
-        "${aws_s3_bucket.archive_bucket.arn}/*"
-      ]
-    }]
-  })
+  versioning_configuration {
+    status = "Enabled"
+  }
 }
 
-resource "aws_iam_role" "app_runtime_admin" {
-  name = "reviewer-action-app-runtime-admin"
+resource "aws_s3_bucket_server_side_encryption_configuration" "archive_bucket_encryption" {
+  bucket = aws_s3_bucket.archive_bucket.id
+
+  rule {
+    apply_server_side_encryption_by_default {
+      sse_algorithm = "AES256"
+    }
+  }
+}
+
+resource "aws_iam_role" "app_runtime" {
+  name = "reviewer-action-app-runtime"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -46,22 +47,17 @@ resource "aws_iam_role" "app_runtime_admin" {
   })
 }
 
-resource "aws_iam_role_policy_attachment" "app_runtime_admin_attach" {
-  role       = aws_iam_role.app_runtime_admin.name
-  policy_arn = "arn:aws:iam::aws:policy/AdministratorAccess"
-}
-
-resource "aws_iam_access_key" "app_runtime_key" {
-  user    = "ops-admin-review"
-  status  = "Active"
+resource "aws_iam_role_policy_attachment" "app_runtime_readonly_attach" {
+  role       = aws_iam_role.app_runtime.name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonS3ReadOnlyAccess"
 }
 
 resource "aws_dynamodb_table" "sessions" {
-  name           = "reviewer-action-sessions"
-  billing_mode   = "PAY_PER_REQUEST"
-  hash_key       = "session_id"
-  range_key      = "created_at"
-  deletion_protection_enabled = false
+  name                        = "reviewer-action-sessions"
+  billing_mode                = "PAY_PER_REQUEST"
+  hash_key                    = "session_id"
+  range_key                   = "created_at"
+  deletion_protection_enabled = true
 
   attribute {
     name = "session_id"
@@ -74,12 +70,11 @@ resource "aws_dynamodb_table" "sessions" {
   }
 
   point_in_time_recovery {
-    enabled = false
+    enabled = true
   }
 
   server_side_encryption {
-    enabled     = false
-    kms_key_arn = null
+    enabled = true
   }
 }
 
@@ -96,17 +91,25 @@ resource "aws_elasticsearch_domain" "search_cluster" {
   }
 
   domain_endpoint_options {
-    enforce_https       = false
-    tls_security_policy = "Policy-Min-TLS-1-0-2019-07"
+    enforce_https       = true
+    tls_security_policy = "Policy-Min-TLS-1-2-2019-07"
   }
 
   access_policies = jsonencode({
     Version = "2012-10-17"
     Statement = [{
+      Sid    = "RestrictToTLS"
       Effect = "Allow"
-      Principal = "*"
-      Action = "es:*"
-      Resource = "*"
+      Principal = {
+        AWS = "arn:aws:iam::123456789012:root"
+      }
+      Action   = ["es:ESHttpGet"]
+      Resource = "arn:aws:es:us-east-1:123456789012:domain/reviewer-action-es/*"
+      Condition = {
+        Bool = {
+          "aws:SecureTransport" = "true"
+        }
+      }
     }]
   })
 }
