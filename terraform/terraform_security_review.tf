@@ -1,3 +1,18 @@
+terraform {
+  required_version = ">= 1.3.0"
+
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 5.0"
+    }
+    random = {
+      source  = "hashicorp/random"
+      version = "~> 3.0"
+    }
+  }
+}
+
 # Secure Terraform review example.
 # This version keeps the same coverage areas while removing the risky patterns that would fail review.
 
@@ -41,6 +56,12 @@ resource "aws_iam_user_policy" "ops_admin_policy" {
   })
 }
 
+resource "random_password" "review_db_password" {
+  length           = 24
+  special          = true
+  override_special = "!@#%&*()-_=+[]{}:<>?"
+}
+
 resource "aws_secretsmanager_secret" "review_db_secret" {
   name = "review-db/credentials"
 }
@@ -49,14 +70,14 @@ resource "aws_secretsmanager_secret_version" "review_db_secret_version" {
   secret_id = aws_secretsmanager_secret.review_db_secret.id
   secret_string = jsonencode({
     username = "adminuser"
-    password = "TemporaryPassword!Review2026"
+    password = random_password.review_db_password.result
   })
 }
 
 resource "aws_db_instance" "review_db" {
   identifier                = "review-db-safe"
   engine                    = "postgres"
-  instance_class            = "db.t3.small"
+  instance_class            = "db.t3.micro"
   allocated_storage         = 20
   username                  = jsondecode(aws_secretsmanager_secret_version.review_db_secret_version.secret_string).username
   password                  = jsondecode(aws_secretsmanager_secret_version.review_db_secret_version.secret_string).password
@@ -70,9 +91,73 @@ resource "aws_db_instance" "review_db" {
   final_snapshot_identifier = "review-db-safe-final"
 }
 
+resource "aws_s3_bucket" "cloudtrail_logs" {
+  bucket        = "review-cloudtrail-logs-12345"
+  force_destroy = false
+}
+
+resource "aws_s3_bucket_public_access_block" "cloudtrail_logs_block" {
+  bucket = aws_s3_bucket.cloudtrail_logs.id
+
+  block_public_acls       = true
+  block_public_policy     = true
+  ignore_public_acls      = true
+  restrict_public_buckets = true
+}
+
+resource "aws_s3_bucket_versioning" "cloudtrail_logs_versioning" {
+  bucket = aws_s3_bucket.cloudtrail_logs.id
+
+  versioning_configuration {
+    status = "Enabled"
+  }
+}
+
+resource "aws_s3_bucket_server_side_encryption_configuration" "cloudtrail_logs_encryption" {
+  bucket = aws_s3_bucket.cloudtrail_logs.id
+
+  rule {
+    apply_server_side_encryption_by_default {
+      sse_algorithm = "AES256"
+    }
+  }
+}
+
+resource "aws_s3_bucket_policy" "cloudtrail_logs_policy" {
+  bucket = aws_s3_bucket.cloudtrail_logs.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Sid    = "AWSCloudTrailWrite"
+      Effect = "Allow"
+      Principal = {
+        Service = "cloudtrail.amazonaws.com"
+      }
+      Action   = "s3:PutObject"
+      Resource = "${aws_s3_bucket.cloudtrail_logs.arn}/AWSLogs/${data.aws_caller_identity.current.account_id}/*"
+      Condition = {
+        StringEquals = {
+          "s3:x-amz-acl" = "bucket-owner-full-control"
+        }
+      }
+      }, {
+      Sid    = "AWSCloudTrailAclCheck"
+      Effect = "Allow"
+      Principal = {
+        Service = "cloudtrail.amazonaws.com"
+      }
+      Action   = "s3:GetBucketAcl"
+      Resource = aws_s3_bucket.cloudtrail_logs.arn
+    }]
+  })
+}
+
+data "aws_caller_identity" "current" {}
+
 resource "aws_cloudtrail" "global_trail" {
   name                          = "review-cloudtrail"
-  s3_bucket_name                = aws_s3_bucket.review_bucket.id
+  s3_bucket_name                = aws_s3_bucket.cloudtrail_logs.id
   include_global_service_events = true
   is_multi_region_trail         = true
   enable_logging                = true

@@ -126,6 +126,12 @@ resource "aws_autoscaling_group" "app" {
   }
 }
 
+resource "random_password" "example_db_password" {
+  length           = 24
+  special          = true
+  override_special = "!@#%&*()-_=+[]{}:<>?"
+}
+
 resource "aws_secretsmanager_secret" "example_db_secret" {
   name = "example-db/credentials"
 }
@@ -134,14 +140,14 @@ resource "aws_secretsmanager_secret_version" "example_db_secret_version" {
   secret_id = aws_secretsmanager_secret.example_db_secret.id
   secret_string = jsonencode({
     username = "admin"
-    password = "TemporaryPassword!2026"
+    password = random_password.example_db_password.result
   })
 }
 
 resource "aws_db_instance" "example_db" {
   identifier              = "example-db"
   engine                  = "mysql"
-  instance_class          = "db.t3.medium"
+  instance_class          = "db.t3.small"
   allocated_storage       = 20
   username                = jsondecode(aws_secretsmanager_secret_version.example_db_secret_version.secret_string).username
   password                = jsondecode(aws_secretsmanager_secret_version.example_db_secret_version.secret_string).password
