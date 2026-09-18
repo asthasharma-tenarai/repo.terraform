@@ -41,18 +41,33 @@ resource "aws_iam_user_policy" "ops_admin_policy" {
   })
 }
 
+resource "aws_secretsmanager_secret" "review_db_secret" {
+  name = "review-db/credentials"
+}
+
+resource "aws_secretsmanager_secret_version" "review_db_secret_version" {
+  secret_id = aws_secretsmanager_secret.review_db_secret.id
+  secret_string = jsonencode({
+    username = "adminuser"
+    password = "TemporaryPassword!Review2026"
+  })
+}
+
 resource "aws_db_instance" "review_db" {
-  identifier              = "review-db-safe"
-  engine                  = "postgres"
-  instance_class          = "db.t3.small"
-  allocated_storage       = 10
-  username                = "adminuser"
-  password                = "P@ssw0rd!Review2026"
-  publicly_accessible     = false
-  skip_final_snapshot     = false
-  storage_encrypted       = true
-  backup_retention_period = 7
-  deletion_protection     = true
+  identifier                = "review-db-safe"
+  engine                    = "postgres"
+  instance_class            = "db.t3.small"
+  allocated_storage         = 20
+  username                  = jsondecode(aws_secretsmanager_secret_version.review_db_secret_version.secret_string).username
+  password                  = jsondecode(aws_secretsmanager_secret_version.review_db_secret_version.secret_string).password
+  publicly_accessible       = false
+  skip_final_snapshot       = false
+  storage_encrypted         = true
+  backup_retention_period   = 7
+  deletion_protection       = true
+  multi_az                  = true
+  copy_tags_to_snapshot     = true
+  final_snapshot_identifier = "review-db-safe-final"
 }
 
 resource "aws_cloudtrail" "global_trail" {
@@ -67,11 +82,11 @@ resource "aws_security_group" "legacy_web" {
   name = "legacy-web-review"
 
   ingress {
-    description = "Allow HTTPS from internal management CIDR only"
+    description = "Allow HTTPS from the trusted admin network only"
     from_port   = 443
     to_port     = 443
     protocol    = "tcp"
-    cidr_blocks = ["10.0.0.0/8"]
+    cidr_blocks = ["203.0.113.50/32"]
   }
 
   egress {
@@ -96,6 +111,23 @@ resource "aws_s3_bucket_versioning" "review_bucket_versioning" {
 
   versioning_configuration {
     status = "Enabled"
+  }
+}
+
+resource "aws_s3_bucket_lifecycle_configuration" "review_bucket_lifecycle" {
+  bucket = aws_s3_bucket.review_bucket.id
+
+  rule {
+    id     = "review-bucket-expire-old-objects"
+    status = "Enabled"
+
+    filter {
+      prefix = "archive/"
+    }
+
+    expiration {
+      days = 30
+    }
   }
 }
 

@@ -19,11 +19,11 @@ resource "aws_security_group" "open_ssh" {
   name = "secure-bastion-sg"
 
   ingress {
-    description = "SSH from the internal admin network only"
+    description = "SSH from the trusted admin IP only"
     from_port   = 22
     to_port     = 22
     protocol    = "tcp"
-    cidr_blocks = ["10.0.0.0/8"]
+    cidr_blocks = ["203.0.113.50/32"]
   }
 
   egress {
@@ -94,7 +94,7 @@ resource "aws_iam_policy" "read_only_bucket" {
 resource "aws_launch_template" "app" {
   name_prefix   = "secure-app-"
   image_id      = "ami-0c02fb55956c7d316"
-  instance_type = "t3.micro"
+  instance_type = "t3.small"
 
   network_interfaces {
     associate_public_ip_address = false
@@ -117,6 +117,7 @@ resource "aws_autoscaling_group" "app" {
   desired_capacity    = 1
   min_size            = 1
   max_size            = 2
+  health_check_type   = "ELB"
   vpc_zone_identifier = ["subnet-0123456789abcdef0"]
 
   launch_template {
@@ -125,18 +126,29 @@ resource "aws_autoscaling_group" "app" {
   }
 }
 
+resource "aws_secretsmanager_secret" "example_db_secret" {
+  name = "example-db/credentials"
+}
+
+resource "aws_secretsmanager_secret_version" "example_db_secret_version" {
+  secret_id = aws_secretsmanager_secret.example_db_secret.id
+  secret_string = jsonencode({
+    username = "admin"
+    password = "TemporaryPassword!2026"
+  })
+}
+
 resource "aws_db_instance" "example_db" {
-  identifier                  = "example-db"
-  engine                      = "mysql"
-  instance_class              = "db.t3.medium"
-  allocated_storage           = 15
-  username = aws_secretsmanager_secret.example_db_secret.secret_string.username  
-password = aws_secretsmanager_secret.example_db_secret.secret_string.password 
-  manage_master_user_password = true
-  publicly_accessible         = false
-  skip_final_snapshot         = false
-  storage_encrypted           = true
-  backup_retention_period     = 7
-  deletion_protection         = true
-  multi_az                    = false
+  identifier              = "example-db"
+  engine                  = "mysql"
+  instance_class          = "db.t3.medium"
+  allocated_storage       = 20
+  username                = jsondecode(aws_secretsmanager_secret_version.example_db_secret_version.secret_string).username
+  password                = jsondecode(aws_secretsmanager_secret_version.example_db_secret_version.secret_string).password
+  publicly_accessible     = false
+  skip_final_snapshot     = false
+  storage_encrypted       = true
+  backup_retention_period = 7
+  deletion_protection     = true
+  multi_az                = true
 }

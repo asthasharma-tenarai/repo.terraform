@@ -22,6 +22,23 @@ resource "aws_s3_bucket_versioning" "archive_bucket_versioning" {
   }
 }
 
+resource "aws_s3_bucket_lifecycle_configuration" "archive_bucket_lifecycle" {
+  bucket = aws_s3_bucket.archive_bucket.id
+
+  rule {
+    id     = "archive-objects"
+    status = "Enabled"
+
+    filter {
+      prefix = "archive/"
+    }
+
+    expiration {
+      days = 30
+    }
+  }
+}
+
 resource "aws_s3_bucket_server_side_encryption_configuration" "archive_bucket_encryption" {
   bucket = aws_s3_bucket.archive_bucket.id
 
