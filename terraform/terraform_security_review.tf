@@ -1,18 +1,3 @@
-terraform {
-  required_version = ">= 1.3.0"
-
-  required_providers {
-    aws = {
-      source  = "hashicorp/aws"
-      version = "~> 5.0"
-    }
-    random = {
-      source  = "hashicorp/random"
-      version = "~> 3.0"
-    }
-  }
-}
-
 # Secure Terraform review example.
 # This version keeps the same coverage areas while removing the risky patterns that would fail review.
 
