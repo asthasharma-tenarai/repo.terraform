@@ -128,14 +128,15 @@ resource "aws_autoscaling_group" "app" {
 resource "aws_db_instance" "example_db" {
   identifier                  = "example-db"
   engine                      = "mysql"
-  instance_class              = "db.t3.micro"
-  allocated_storage           = 5
-  username                    = "admin"
+  instance_class              = "db.t3.medium"
+  allocated_storage           = 15
+  username = aws_secretsmanager_secret.example_db_secret.secret_string.username  
+password = aws_secretsmanager_secret.example_db_secret.secret_string.password 
   manage_master_user_password = true
   publicly_accessible         = false
   skip_final_snapshot         = false
   storage_encrypted           = true
   backup_retention_period     = 7
   deletion_protection         = true
-  multi_az                    = true
+  multi_az                    = false
 }
