@@ -19,6 +19,12 @@ provider "aws" {
   region = "us-east-1"
 }
 
+variable "database_username" {
+  description = "Database admin username for the RDS instance"
+  type        = string
+  default     = "admin"
+}
+
 resource "aws_security_group" "open_ssh" {
   name = "secure-bastion-sg"
 
@@ -135,7 +141,7 @@ resource "aws_secretsmanager_secret" "example_db_secret" {
 resource "aws_secretsmanager_secret_version" "example_db_secret_version" {
   secret_id = aws_secretsmanager_secret.example_db_secret.id
   secret_string = jsonencode({
-    username = "admin"
+    username = var.database_username
     password = random_password.example_db_password.result
   })
 }

@@ -47,6 +47,12 @@ resource "aws_iam_role_policy" "ops_admin_policy" {
   })
 }
 
+variable "review_db_username" {
+  description = "Database admin username for the review database"
+  type        = string
+  default     = "review_admin"
+}
+
 resource "random_password" "review_db_password" {
   length           = 24
   special          = true
@@ -60,7 +66,7 @@ resource "aws_secretsmanager_secret" "review_db_secret" {
 resource "aws_secretsmanager_secret_version" "review_db_secret_version" {
   secret_id = aws_secretsmanager_secret.review_db_secret.id
   secret_string = jsonencode({
-    username = "adminuser"
+    username = var.review_db_username
     password = random_password.review_db_password.result
   })
 }
