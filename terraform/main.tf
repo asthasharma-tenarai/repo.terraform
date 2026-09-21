@@ -1,5 +1,3 @@
-# Secure Terraform example for learning and review.
-
 terraform {
   required_version = ">= 1.3.0"
 
@@ -8,6 +6,7 @@ terraform {
       source  = "hashicorp/aws"
       version = "~> 5.0"
     }
+
     random = {
       source  = "hashicorp/random"
       version = "~> 3.0"
@@ -37,6 +36,7 @@ resource "aws_security_group" "open_ssh" {
   }
 
   egress {
+    description = "Allow outbound traffic"
     from_port   = 0
     to_port     = 0
     protocol    = "-1"
@@ -81,12 +81,18 @@ resource "aws_iam_policy" "read_only_bucket" {
 
   policy = jsonencode({
     Version = "2012-10-17"
+
     Statement = [{
       Effect = "Allow"
-      Action = ["s3:GetObject", "s3:ListBucket"]
+
+      Action = [
+        "s3:GetObject",
+        "s3:ListBucket"
+      ]
+
       Resource = [
-        "arn:aws:s3:::example-data-bucket-12345",
-        "arn:aws:s3:::example-data-bucket-12345/*"
+        aws_s3_bucket.example_data.arn,
+        "${aws_s3_bucket.example_data.arn}/*"
       ]
     }]
   })
@@ -98,12 +104,12 @@ resource "aws_launch_template" "app" {
   instance_type = "t3.small"
 
   network_interfaces {
-    associate_public_ip_address = true
+    associate_public_ip_address = false
     security_groups             = [aws_security_group.open_ssh.id]
   }
 
   metadata_options {
-    http_tokens = "optional"
+    http_tokens = "required"
   }
 
   user_data = base64encode(<<-EOF
@@ -139,6 +145,7 @@ resource "aws_secretsmanager_secret" "example_db_secret" {
 
 resource "aws_secretsmanager_secret_version" "example_db_secret_version" {
   secret_id = aws_secretsmanager_secret.example_db_secret.id
+
   secret_string = jsonencode({
     username = var.database_username
     password = random_password.example_db_password.result
@@ -146,17 +153,20 @@ resource "aws_secretsmanager_secret_version" "example_db_secret_version" {
 }
 
 resource "aws_db_instance" "example_db" {
-  identifier              = "example-db"
-  engine                  = "mysql"
-  instance_class          = "db.t3.micro"
-  allocated_storage       = 50
-  username                = var.database_username
-  password                = random_password.example_db_password.result
+  identifier = "example-db"
 
-  publicly_accessible     = true
-  skip_final_snapshot     = true
-  storage_encrypted       = false
-  backup_retention_period = 0
+  engine         = "mysql"
+  instance_class = "db.t3.micro"
+
+  allocated_storage = 50
+
+  username = var.database_username
+  password = random_password.example_db_password.result
+
+  publicly_accessible     = false
+  skip_final_snapshot     = false
+  storage_encrypted       = true
+  backup_retention_period = 7
   deletion_protection     = true
-  multi_az                = false
+  multi_az                = true
 }
