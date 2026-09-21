@@ -90,7 +90,7 @@ resource "aws_iam_policy" "read_only_bucket" {
 resource "aws_launch_template" "app" {
   name_prefix   = "secure-app-"
   image_id      = "ami-0c02fb55956c7d316"
-  instance_type = "t3.micro"
+  instance_type = "t3.small"
 
   network_interfaces {
     associate_public_ip_address = false
@@ -112,7 +112,7 @@ resource "aws_autoscaling_group" "app" {
   name                = "secure-app-asg"
   desired_capacity    = 2
   min_size            = 2
-  max_size            = 2
+  max_size            = 4
   health_check_type   = "ELB"
   vpc_zone_identifier = ["subnet-0123456789abcdef0"]
 
@@ -143,8 +143,8 @@ resource "aws_secretsmanager_secret_version" "example_db_secret_version" {
 resource "aws_db_instance" "example_db" {
   identifier              = "example-db"
   engine                  = "mysql"
-  instance_class          = "db.t3.micro"
-  allocated_storage       = 20
+  instance_class          = "db.t3.small"
+  allocated_storage       = 50
   username                = jsondecode(aws_secretsmanager_secret_version.example_db_secret_version.secret_string).username
   password                = jsondecode(aws_secretsmanager_secret_version.example_db_secret_version.secret_string).password
   publicly_accessible     = false
