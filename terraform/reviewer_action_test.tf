@@ -71,9 +71,11 @@ resource "aws_iam_role_policy_attachment" "app_runtime_readonly_attach" {
 
 resource "aws_dynamodb_table" "sessions" {
   name                        = "reviewer-action-sessions"
-  billing_mode                = "PAY_PER_REQUEST"
+  billing_mode                = "PROVISIONED"
   hash_key                    = "session_id"
   range_key                   = "created_at"
+  read_capacity               = 10
+  write_capacity              = 10
   deletion_protection_enabled = true
 
   attribute {
@@ -118,7 +120,7 @@ resource "aws_elasticsearch_domain" "search_cluster" {
       Sid    = "RestrictToTLS"
       Effect = "Allow"
       Principal = {
-        AWS = "arn:aws:iam::123456789012:root"
+        AWS = "arn:aws:iam::123456789012:role/reviewer-action-es-reader"
       }
       Action   = ["es:ESHttpGet"]
       Resource = "arn:aws:es:us-east-1:123456789012:domain/reviewer-action-es/*"

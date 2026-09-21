@@ -31,19 +31,11 @@ resource "aws_security_group" "open_ssh" {
   }
 
   egress {
-    description = "Allow HTTPS and HTTP outbound for updates"
-    from_port   = 80
-    to_port     = 80
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  egress {
-    description = "Allow HTTPS outbound for updates"
+    description = "Allow outbound HTTPS to the approved update source only"
     from_port   = 443
     to_port     = 443
     protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
+    cidr_blocks = ["203.0.113.50/32"]
   }
 }
 
@@ -98,7 +90,7 @@ resource "aws_iam_policy" "read_only_bucket" {
 resource "aws_launch_template" "app" {
   name_prefix   = "secure-app-"
   image_id      = "ami-0c02fb55956c7d316"
-  instance_type = "t3.small"
+  instance_type = "t3.micro"
 
   network_interfaces {
     associate_public_ip_address = false
@@ -118,8 +110,8 @@ resource "aws_launch_template" "app" {
 
 resource "aws_autoscaling_group" "app" {
   name                = "secure-app-asg"
-  desired_capacity    = 1
-  min_size            = 1
+  desired_capacity    = 2
+  min_size            = 2
   max_size            = 2
   health_check_type   = "ELB"
   vpc_zone_identifier = ["subnet-0123456789abcdef0"]
@@ -151,7 +143,7 @@ resource "aws_secretsmanager_secret_version" "example_db_secret_version" {
 resource "aws_db_instance" "example_db" {
   identifier              = "example-db"
   engine                  = "mysql"
-  instance_class          = "db.t3.small"
+  instance_class          = "db.t3.micro"
   allocated_storage       = 20
   username                = jsondecode(aws_secretsmanager_secret_version.example_db_secret_version.secret_string).username
   password                = jsondecode(aws_secretsmanager_secret_version.example_db_secret_version.secret_string).password

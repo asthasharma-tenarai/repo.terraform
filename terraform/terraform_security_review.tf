@@ -6,11 +6,6 @@ resource "aws_s3_bucket" "review_bucket" {
   force_destroy = false
 }
 
-resource "aws_s3_bucket_acl" "review_bucket_acl" {
-  bucket = aws_s3_bucket.review_bucket.id
-  acl    = "private"
-}
-
 resource "aws_s3_bucket_public_access_block" "review_bucket_block" {
   bucket = aws_s3_bucket.review_bucket.id
 
@@ -20,13 +15,24 @@ resource "aws_s3_bucket_public_access_block" "review_bucket_block" {
   restrict_public_buckets = true
 }
 
-resource "aws_iam_user" "ops_admin" {
-  name = "ops-admin-review"
+resource "aws_iam_role" "ops_admin" {
+  name = "ops-admin-review-role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect = "Allow"
+      Principal = {
+        Service = "ec2.amazonaws.com"
+      }
+      Action = "sts:AssumeRole"
+    }]
+  })
 }
 
-resource "aws_iam_user_policy" "ops_admin_policy" {
+resource "aws_iam_role_policy" "ops_admin_policy" {
   name = "review-data-readonly"
-  user = aws_iam_user.ops_admin.name
+  role = aws_iam_role.ops_admin.name
 
   policy = jsonencode({
     Version = "2012-10-17"
