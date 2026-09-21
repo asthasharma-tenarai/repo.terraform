@@ -35,6 +35,13 @@ resource "aws_security_group" "open_ssh" {
     protocol    = "tcp"
     cidr_blocks = ["203.0.113.50/32"]
   }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
 }
 
 resource "aws_s3_bucket" "example_data" {
@@ -91,12 +98,12 @@ resource "aws_launch_template" "app" {
   instance_type = "t3.small"
 
   network_interfaces {
-    associate_public_ip_address = false
+    associate_public_ip_address = true
     security_groups             = [aws_security_group.open_ssh.id]
   }
 
   metadata_options {
-    http_tokens = "required"
+    http_tokens = "optional"
   }
 
   user_data = base64encode(<<-EOF
@@ -143,12 +150,13 @@ resource "aws_db_instance" "example_db" {
   engine                  = "mysql"
   instance_class          = "db.t3.micro"
   allocated_storage       = 50
-  username                = jsondecode(aws_secretsmanager_secret_version.example_db_secret_version.secret_string).username
-  password                = jsondecode(aws_secretsmanager_secret_version.example_db_secret_version.secret_string).password
-  publicly_accessible     = false
-  skip_final_snapshot     = false
-  storage_encrypted       = true
-  backup_retention_period = 7
+  username                = var.database_username
+  password                = random_password.example_db_password.result
+
+  publicly_accessible     = true
+  skip_final_snapshot     = true
+  storage_encrypted       = false
+  backup_retention_period = 0
   deletion_protection     = false
-  multi_az                = true
+  multi_az                = false
 }
