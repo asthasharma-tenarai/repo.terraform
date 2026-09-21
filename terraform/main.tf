@@ -22,7 +22,7 @@ provider "aws" {
 variable "database_username" {
   description = "Database admin username for the RDS instance"
   type        = string
-  default     = "admin"
+  default     = "db_dev_admn_963"
 }
 
 resource "aws_security_group" "open_ssh" {
@@ -35,18 +35,10 @@ resource "aws_security_group" "open_ssh" {
     protocol    = "tcp"
     cidr_blocks = ["203.0.113.50/32"]
   }
-
-  egress {
-    description = "Allow outbound HTTPS to the approved update source only"
-    from_port   = 443
-    to_port     = 443
-    protocol    = "tcp"
-    cidr_blocks = ["203.0.113.50/32"]
-  }
 }
 
 resource "aws_s3_bucket" "example_data" {
-  bucket        = "example-data-bucket-12345"
+  bucket        = "example-data-bucket-12345-terraform-demo-2026"
   force_destroy = false
 }
 
@@ -96,7 +88,7 @@ resource "aws_iam_policy" "read_only_bucket" {
 resource "aws_launch_template" "app" {
   name_prefix   = "secure-app-"
   image_id      = "ami-0c02fb55956c7d316"
-  instance_type = "t3.micro"
+  instance_type = "t3.small"
 
   network_interfaces {
     associate_public_ip_address = false
@@ -157,6 +149,6 @@ resource "aws_db_instance" "example_db" {
   skip_final_snapshot     = false
   storage_encrypted       = true
   backup_retention_period = 7
-  deletion_protection     = false
+  deletion_protection     = true
   multi_az                = true
 }
