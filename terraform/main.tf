@@ -149,6 +149,6 @@ resource "aws_db_instance" "example_db" {
   skip_final_snapshot     = false
   storage_encrypted       = true
   backup_retention_period = 7
-  deletion_protection     = true
+  deletion_protection     = false
   multi_az                = true
 }
