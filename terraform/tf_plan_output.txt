@@ -1,0 +1,104 @@
+Terraform will perform the following actions:
+
+  # aws_instance.api will be updated in-place
+  ~ resource "aws_instance" "api" {
+      ~ instance_type = "t3.large" -> "m7i.large"
+      ~ monitoring    = false -> true
+    }
+
+  # aws_instance.worker will be updated in-place
+  ~ resource "aws_instance" "worker" {
+      ~ instance_type = "m6i.2xlarge" -> "m6i.4xlarge"
+    }
+
+  # aws_db_instance.production will be destroyed and then created
+-/+ resource "aws_db_instance" "production" {
+      ~ identifier              = "prod-orders-db" -> "prod-orders-db-v2" # forces replacement
+      ~ instance_class          = "db.r6g.2xlarge" -> "db.r6g.4xlarge"
+      ~ storage_encrypted       = true -> false
+      ~ publicly_accessible     = false -> true
+      ~ backup_retention_period = 14 -> 0
+      ~ deletion_protection     = true -> false
+      ~ skip_final_snapshot     = false -> true
+      ~ multi_az                = true -> false
+    }
+
+  # aws_s3_bucket.customer_uploads will be destroyed
+  - resource "aws_s3_bucket" "customer_uploads" {
+      - bucket = "prod-customer-uploads" -> null
+    }
+
+  # aws_security_group_rule.api_ingress will be created
+  + resource "aws_security_group_rule" "api_ingress" {
+      + type        = "ingress"
+      + protocol    = "tcp"
+      + from_port   = 22
+      + to_port     = 22
+      + cidr_blocks = ["0.0.0.0/0"]
+    }
+
+  # aws_iam_policy.admin_policy will be updated in-place
+  ~ resource "aws_iam_policy" "admin_policy" {
+      ~ policy = jsonencode({
+          ~ Statement = [{
+              ~ Action   = ["s3:GetObject"] -> ["*"]
+              ~ Resource = ["arn:aws:s3:::prod-customer-uploads/*"] -> ["*"]
+            }]
+        })
+    }
+
+  # aws_s3_bucket.audit_logs will be updated in-place
+  ~ resource "aws_s3_bucket.audit_logs" "audit_logs" {
+      ~ force_destroy = false -> true
+    }
+
+  # aws_s3_bucket_public_access_block.assets will be updated in-place
+  ~ resource "aws_s3_bucket_public_access_block" "assets" {
+      ~ block_public_acls       = true -> false
+      ~ block_public_policy     = true -> false
+      ~ ignore_public_acls      = true -> false
+      ~ restrict_public_buckets = true -> false
+    }
+
+  # aws_cloudwatch_log_group.application will be updated in-place
+  ~ resource "aws_cloudwatch_log_group" "application" {
+      ~ retention_in_days = 365 -> 7
+    }
+
+  # aws_nat_gateway.private_a will be created
+  + resource "aws_nat_gateway" "private_a" {
+      + subnet_id = "subnet-private-a"
+    }
+
+  # aws_nat_gateway.private_b will be created
+  + resource "aws_nat_gateway" "private_b" {
+      + subnet_id = "subnet-private-b"
+    }
+
+  # aws_db_instance.reporting will be updated in-place
+  ~ resource "aws_db_instance" "reporting" {
+      ~ instance_class          = "db.t3.large" -> "db.t3.2xlarge"
+      ~ multi_az                = false -> true
+      ~ backup_retention_period = 7 -> 14
+    }
+
+  # aws_autoscaling_group.api will be updated in-place
+  ~ resource "aws_autoscaling_group" "api" {
+      ~ min_size         = 2 -> 1
+      ~ max_size         = 10 -> 2
+      ~ desired_capacity = 4 -> 1
+    }
+
+  # aws_ebs_volume.worker_data will be updated in-place
+  ~ resource "aws_ebs_volume" "worker_data" {
+      ~ encrypted = true -> false
+      ~ size      = 200 -> 500
+    }
+
+  # aws_db_instance.dev_sandbox will be updated in-place
+  ~ resource "aws_db_instance" "dev_sandbox" {
+      ~ instance_class = "db.m6i.2xlarge" -> "db.t4g.medium"
+      ~ multi_az       = true -> false
+    }
+
+Plan: 3 to add, 9 to change, 4 to destroy.

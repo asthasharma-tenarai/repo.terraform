@@ -93,6 +93,3 @@ jobs:
           openai_api_key: ${{ secrets.OPENAI_API_KEY }}
           github_token: ${{ secrets.GITHUB_TOKEN }}
           plan_path: terraform/tf_plan_output.txt
-          GITHUB_EVENT_ACTION: ${{ github.event.action }}
-          GITHUB_EVENT_BEFORE: ${{ github.event.before }}
-
