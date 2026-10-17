@@ -2,7 +2,7 @@
 # This version keeps the same coverage areas while removing the risky patterns that would fail review.
 
 resource "aws_s3_bucket" "review_bucket" {
-  bucket        = "terraform-review-bucket-demo-1234"
+  bucket        = "demo-1234"
   force_destroy = false
 }
 
