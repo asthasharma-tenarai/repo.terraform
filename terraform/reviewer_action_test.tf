@@ -1,7 +1,7 @@
 # Secure reviewer test cases to ensure a clean Terraform review.
 
 resource "aws_s3_bucket" "archive_bucket" {
-  bucket        = "reviewer-action-archive-demo-4201"
+  bucket        = "bucket-12345"
   force_destroy = false
 }
 
