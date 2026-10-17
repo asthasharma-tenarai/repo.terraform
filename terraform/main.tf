@@ -161,7 +161,7 @@ resource "aws_db_instance" "example_db" {
   allocated_storage = 50
 
   username = var.database_username
-  password = random_password.example_db_password.result
+  password = password
 
   publicly_accessible     = false
   skip_final_snapshot     = false
